@@ -64,12 +64,20 @@
 
         // Show add contact modal
         $('#add-contact-btn').click(function () {
+            url = "{% url 'contact_create'%}"
+            const contactModal = new bootstrap.Modal(document.getElementById('contact-modal'));
+            contactModal.show();
+
+            // Load form via AJAX
             $.ajax({
-                url: "{% url 'contact_create' %}",
-                type: 'get',
+                url: url,
+                type: "GET",
                 success: function (data) {
-                    $('#modal-form-container').html(data.html_form);
-                    $('#contact-modal').modal('show');
+                    $(".modal-body").html(data);
+                    setupFormSubmission();
+                },
+                error: function (xhr, status, error) {
+                    $(".modal-body").html('<div class="alert alert-danger">Error loading form: ' + error + '</div>');
                 }
             });
         });

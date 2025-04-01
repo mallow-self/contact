@@ -6,6 +6,8 @@ from django.template.loader import render_to_string
 from .models import Contact, ContactGroup
 from .forms import ContactForm
 from ajax_datatable.views import AjaxDatatableView
+from django.shortcuts import render
+
 
 class ContactListView(ListView):
     model = Contact
@@ -41,8 +43,18 @@ class ContactAjaxDatatableView(AjaxDatatableView):
 class ContactCreateView(CreateView):
     model = Contact
     form_class = ContactForm
-    template_name = 'contacts/contact_form.html'
+    template_name = 'contacts/includes/contact_form.html'
     success_url = reverse_lazy('contact_list')
+
+    def get(self, request, *args, **kwargs):
+        # If AJAX request, return only the form
+        try:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                form = self.get_form()
+                return render(request, self.template_name, {'form': form})
+            return super().get(request, *args, **kwargs)
+        except (Exception) as e:
+            print(f"Exception occured:{e}")
 
     def form_valid(self, form):
         contact = form.save()
