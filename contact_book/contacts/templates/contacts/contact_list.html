@@ -1,0 +1,160 @@
+<!-- templates/contacts/contact_list.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h2>Contacts</h2>
+    </div>
+    <div class="col-md-6 text-end">
+        <button type="button" class="btn btn-primary" id="add-contact-btn">
+            <i class="fas fa-plus"></i> Add Contact
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table id="contacts-table" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Phone Number</th>
+                    <th>Email</th>
+                    <th>Group</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+<!-- Modal for contact form -->
+<div class="modal fade" id="contact-modal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactModalLabel">Add/Edit Contact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modal-form-container">
+                <!-- Form will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        // Initialize DataTable
+        var table = $('#contacts-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: "{% url 'contact_data' %}",
+            columns: [
+                { data: 'name' },
+                { data: 'phone_number' },
+                { data: 'email' },
+                { data: 'contact_group__name' },
+                { data: 'actions', orderable: false, searchable: false }
+            ]
+        });
+
+        // Show add contact modal
+        $('#add-contact-btn').click(function () {
+            $.ajax({
+                url: "{% url 'contact_create' %}",
+                type: 'get',
+                success: function (data) {
+                    $('#modal-form-container').html(data.html_form);
+                    $('#contact-modal').modal('show');
+                }
+            });
+        });
+
+        // Handle form submit
+        $('#modal-form-container').on('submit', '.contact-form', function (e) {
+            e.preventDefault();
+
+            var form = $(this);
+            var formData = new FormData(form[0]);
+
+            $.ajax({
+                url: form.attr('action'),
+                type: form.attr('method'),
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (data) {
+                    if (data.success) {
+                        $('#contact-modal').modal('hide');
+                        table.ajax.reload();
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: data.message,
+                            timer: 1500
+                        });
+                    } else {
+                        $('#modal-form-container').html(data.html_form);
+                    }
+                }
+            });
+        });
+
+        // Edit contact
+        $('#contacts-table').on('click', '.edit-btn', function () {
+            var url = $(this).data('url');
+
+            $.ajax({
+                url: url,
+                type: 'get',
+                success: function (data) {
+                    $('#modal-form-container').html(data.html_form);
+                    $('#contact-modal').modal('show');
+                }
+            });
+        });
+
+        // Delete contact
+        $('#contacts-table').on('click', '.delete-btn', function () {
+            var url = $(this).data('url');
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: url,
+                        type: 'post',
+                        data: {
+                            csrfmiddlewaretoken: '{{ csrf_token }}'
+                        },
+                        success: function (data) {
+                            if (data.success) {
+                                table.ajax.reload();
+
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: data.message,
+                                    timer: 1500
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
