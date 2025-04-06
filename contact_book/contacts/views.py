@@ -60,13 +60,14 @@ class ContactCreateView(CreateView):
     def form_invalid(self, form):
         try:
             if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                html_form = render_to_string(self.template_name, {'form': form}, request=self.request)
                 return JsonResponse({
                     'success': False,
-                    'html': render_to_string(self.template_name, {'form': form}, request=self.request)
+                    'html_form': html_form
                 })
             return super().form_invalid(form)
         except (Exception) as e:
-            print(f"Exception occured:{e}")
+            print(f"Exception occurred:{e}")
 
 
 class ContactUpdateView(UpdateView):
@@ -86,9 +87,12 @@ class ContactUpdateView(UpdateView):
                 self.object = self.get_object()
                 form = self.get_form()
                 context = {
-                    'form': form,
-                    'object': self.object,
+                    "form": form,
+                    "object": self.object,
+                    "has_image": bool(self.object.contact_picture),
                 }
+                if self.object.contact_picture:
+                    context["image_url"] = self.object.contact_picture.url
 
                 return render(request, self.template_name, context)
             return super().get(request, *args, **kwargs)
@@ -105,7 +109,7 @@ class ContactUpdateView(UpdateView):
                     self.object = form.save(commit=False)
                     # Get the existing Blog object and its image
                     existing_blog = get_object_or_404(Contact, pk=self.object.pk)
-                    self.object.image = existing_blog.image
+                    self.object.contact_picture = existing_blog.contact_picture
 
                     self.object.save()
                     form.save_m2m()  # Save many-to-many relationships if any
@@ -114,7 +118,7 @@ class ContactUpdateView(UpdateView):
 
                 return JsonResponse({
                     'success': True,
-                    'message': 'Blog updated successfully!',
+                    'message': 'Contact updated successfully!',
                     'id': self.object.pk,
                 })
             return super().form_valid(form)
@@ -127,17 +131,17 @@ class ContactUpdateView(UpdateView):
             if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 self.object = self.get_object()  # Need to get the object for the template
                 context = {
-                    'form': form,
-                    'object': self.object,
-                    'has_image': bool(self.object.image)
+                    "form": form,
+                    "object": self.object,
+                    "has_image": bool(self.object.contact_picture),
                 }
-                if self.object.image:
-                    context['image_url'] = self.object.image.url
+                if self.object.contact_picture:
+                    context["image_url"] = self.object.contact_picture.url
 
                 return JsonResponse(
                     {
                         "success": False,
-                        'html': render_to_string(self.template_name, context, request=self.request)
+                        'html_form': render_to_string(self.template_name, context, request=self.request)
                     }
                 )
             return super().form_invalid(form)

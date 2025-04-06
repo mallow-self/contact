@@ -1,6 +1,6 @@
 <form id="contactForm"
     action="{% if object %}{% url 'contact_update' pk=object.pk %}{% else %}{% url 'contact_create' %}{% endif %}"
-    method="post" enctype="multipart/form-data" onsubmit="return validation()">
+    method="post" enctype="multipart/form-data">
     {% csrf_token %}
 
     <div class="mb-3">

@@ -105,9 +105,14 @@
             });
         }
 
-        // Handle form submit
-        $('#modal-form-container').on('submit', '.contact-form', function (e) {
+        // Handle form submit - using event delegation
+        $(document).on('submit', '#contactForm', function (e) {
             e.preventDefault();
+
+            // Run client-side validation first
+            if (typeof validation === 'function' && !validation()) {
+                return false; // Stop here if validation fails
+            }
 
             var form = $(this);
             var formData = new FormData(form[0]);
@@ -130,7 +135,8 @@
                             timer: 1500
                         });
                     } else {
-                        $('#modal-form-container').html(data.html_form);
+                        // Update the modal body with the returned form
+                        $(".modal-body").html(data.html_form);
                     }
                 },
                 error: function (xhr, status, error) {
@@ -138,11 +144,11 @@
                 }
             });
         });
-
         // Delete contact
         $('#contacts-table').on('click', '.delete-btn', function () {
             let id = $(this).data('id');
-            let url = `/delete/${id}/`;
+            let url = "{% url 'contact_delete' 0 %}".replace("0", id);
+            // let url = `/delete/${id}/`;
 
             Swal.fire({
                 title: 'Are you sure?',
