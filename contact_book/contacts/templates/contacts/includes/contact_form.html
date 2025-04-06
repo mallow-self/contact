@@ -1,55 +1,58 @@
-<form method="post" action="{{ request.path }}" class="contact-form" enctype="multipart/form-data">
+<form id="contactForm"
+    action="{% if object %}{% url 'contact_update' pk=object.pk %}{% else %}{% url 'contact_create' %}{% endif %}"
+    method="post" enctype="multipart/form-data" onsubmit="return validation()">
     {% csrf_token %}
 
     <div class="mb-3">
         <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+        {{ form.name.errors }}
         {{ form.name }}
-        {% if form.name.errors %}
-        <div class="invalid-feedback d-block">
-            {{ form.name.errors }}
-        </div>
-        {% endif %}
     </div>
 
     <div class="mb-3">
         <label for="{{ form.phone_number.id_for_label }}" class="form-label">Phone Number</label>
+        {{ form.phone_number.errors }}
         {{ form.phone_number }}
-        {% if form.phone_number.errors %}
-        <div class="invalid-feedback d-block">
-            {{ form.phone_number.errors }}
-        </div>
-        {% endif %}
     </div>
 
     <div class="mb-3">
-        <label for="{{ form.email.id_for_label }}" class="form-label">Email (optional)</label>
+        <label for="{{ form.email.id_for_label }}" class="form-label">Email Id</label>
+        {{ form.email.errors }}
         {{ form.email }}
-        {% if form.email.errors %}
-        <div class="invalid-feedback d-block">
-            {{ form.email.errors }}
+    </div>
+
+    <div class="mb-3">
+        <label for="{{ form.contact_picture.id_for_label }}" class="form-label">Contact Picture</label>
+        {{ form.contact_picture.errors }}
+
+        {% if has_image %}
+        <div class="mb-2">
+            <p>Current image: <a href="{{ image_url }}" target="_blank">View image</a></p>
+            <img src="{{ image_url }}" alt="Contact Picture" style="max-width: 200px; max-height: 150px;"
+                class="img-thumbnail mb-2">
         </div>
+        <div id="new-image-upload">
+            <label>Upload new image (leave empty to keep current image):</label>
+            {{ form.contact_picture }}
+        </div>
+        {% else %}
+        {{ form.contact_picture }}
         {% endif %}
     </div>
 
     <div class="mb-3">
         <label for="{{ form.contact_group.id_for_label }}" class="form-label">Contact Group</label>
+        {{ form.contact_group.errors }}
         {{ form.contact_group }}
-        {% if form.contact_group.errors %}
-        <div class="invalid-feedback d-block">
-            {{ form.contact_group.errors }}
-        </div>
-        {% endif %}
     </div>
 
-    <div class="mb-3">
-        <label for="{{ form.contact_picture.id_for_label }}" class="form-label">Contact Picture</label>
-        {{ form.contact_picture }}
-        {% if form.contact_picture.errors %}
-        <div class="invalid-feedback d-block">
-            {{ form.contact_picture.errors }}
-        </div>
-        {% endif %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {% for error in form.non_field_errors %}
+        {{ error }}
+        {% endfor %}
     </div>
+    {% endif %}
 
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

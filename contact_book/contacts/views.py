@@ -6,7 +6,7 @@ from django.template.loader import render_to_string
 from .models import Contact, ContactGroup
 from .forms import ContactForm
 from ajax_datatable.views import AjaxDatatableView
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 
 
 class ContactListView(ListView):
@@ -18,26 +18,14 @@ class ContactListView(ListView):
 class ContactAjaxDatatableView(AjaxDatatableView):
     model = Contact
     title = 'Contacts'
-    initial_order = [["name", "asc"]]
-    length_menu = [[10, 20, 50, 100], [10, 20, 50, 100]]
-    search_values_separator = '+'
-
-    column_defs = [
-        {'name': 'name', 'visible': True, 'title': 'Name'},
-        {'name': 'phone_number', 'visible': True, 'title': 'Phone Number'},
-        {'name': 'email', 'visible': True, 'title': 'Email'},
-        {'name': 'contact_group__name', 'visible': True,
-            'title': 'Group', 'foreign_field': 'contact_group__name'},
-        {'name': 'actions', 'title': 'Actions',
-            'searchable': False, 'orderable': False},
+    search_fields: list[str] = ["name", "phone_number", "email","contact_group__name"]
+    column_defs: list[object] = [
+        {"name": "id", "title": "id", "visible": True, "orderable": True},
+        {"name": "name", "title": "Title", "orderable": True},
+        {"name": "phone_number", "title": "Content", "orderable": False},
+        {"name": "email", "title": "Category", "orderable": True},
+        {'name': 'contact_group__name', 'visible': True, 'title': 'Group', 'foreign_field': 'contact_group__name'},
     ]
-
-    def customize_row(self, row, obj):
-        row['actions'] = render_to_string(
-            'contacts/includes/contact_actions.html',
-            {'contact': obj}
-        )
-        return row
 
 
 class ContactCreateView(CreateView):
@@ -57,70 +45,109 @@ class ContactCreateView(CreateView):
             print(f"Exception occured:{e}")
 
     def form_valid(self, form):
-        contact = form.save()
-        data = {
-            'success': True,
-            'message': 'Contact created successfully!',
-            'contact': {
-                'id': contact.id,
-                'name': contact.name,
-                'phone_number': contact.phone_number,
-                'email': contact.email or '',
-                'contact_group': contact.contact_group.name,
-            }
-        }
-        return JsonResponse(data)
+        try:
+            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                self.object = form.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Contact created successfully!',
+                    'id': self.object.pk,
+                })
+            return super().form_valid(form)
+        except (Exception) as e:
+            print(f"Exception occured:{e}")
 
     def form_invalid(self, form):
-        data = {
-            'success': False,
-            'html_form': render_to_string(
-                'contacts/contact_form.html',
-                {'form': form},
-                request=self.request
-            )
-        }
-        return JsonResponse(data)
+        try:
+            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'html': render_to_string(self.template_name, {'form': form}, request=self.request)
+                })
+            return super().form_invalid(form)
+        except (Exception) as e:
+            print(f"Exception occured:{e}")
 
 
 class ContactUpdateView(UpdateView):
-    model = Contact
-    form_class = ContactForm
-    template_name = 'contacts/includes/contact_form.html'
-    success_url = reverse_lazy('contact_list')
+    try:
+        model = Contact
+        form_class = ContactForm
+        template_name: str = 'contacts/includes/contact_form.html'
+        success_url = reverse_lazy('contact_list')
+
+    except (Exception) as e:
+        print(f"Exception occured:{e}")
+
+    def get(self, request, *args, **kwargs):
+        # If AJAX request, return only the form
+        try:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                self.object = self.get_object()
+                form = self.get_form()
+                context = {
+                    'form': form,
+                    'object': self.object,
+                }
+
+                return render(request, self.template_name, context)
+            return super().get(request, *args, **kwargs)
+        except (Exception) as e:
+            print(f"Exception occured:{e}")
 
     def form_valid(self, form):
-        contact = form.save()
-        data = {
-            'success': True,
-            'message': 'Contact updated successfully!',
-            'contact': {
-                'id': contact.id,
-                'name': contact.name,
-                'phone_number': contact.phone_number,
-                'email': contact.email or '',
-                'contact_group': contact.contact_group.name,
-            }
-        }
-        return JsonResponse(data)
+        # Handle AJAX form submission
+        try:
+            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Check if image field is empty in the POST but the object already has an image
+                if not self.request.FILES.get('image') and 'image-clear' not in self.request.POST:
+                    # Keep the existing image
+                    self.object = form.save(commit=False)
+                    # Get the existing Blog object and its image
+                    existing_blog = get_object_or_404(Contact, pk=self.object.pk)
+                    self.object.image = existing_blog.image
+
+                    self.object.save()
+                    form.save_m2m()  # Save many-to-many relationships if any
+                else:
+                    self.object = form.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Blog updated successfully!',
+                    'id': self.object.pk,
+                })
+            return super().form_valid(form)
+        except (Exception) as e:
+            print(f"Exception occured:{e}")
 
     def form_invalid(self, form):
-        data = {
-            'success': False,
-            'html_form': render_to_string(
-                'contacts/includes/contact_form.html',
-                {'form': form},
-                request=self.request
-            )
-        }
-        return JsonResponse(data)
+        # Handle AJAX form submission with errors
+        try:
+            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                self.object = self.get_object()  # Need to get the object for the template
+                context = {
+                    'form': form,
+                    'object': self.object,
+                    'has_image': bool(self.object.image)
+                }
+                if self.object.image:
+                    context['image_url'] = self.object.image.url
+
+                return JsonResponse(
+                    {
+                        "success": False,
+                        'html': render_to_string(self.template_name, context, request=self.request)
+                    }
+                )
+            return super().form_invalid(form)
+        except (Exception) as e:
+            print(f"Exception occured:{e}")
 
 
 class ContactDeleteView(DeleteView):
     model = Contact
-    
-
-    def delete(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         self.object.delete()
         return JsonResponse({

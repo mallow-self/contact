@@ -18,6 +18,7 @@
         <table id="contacts-table" class="display" style="width:100%">
             <thead>
                 <tr>
+                    <th>Id</th>
                     <th>Name</th>
                     <th>Phone Number</th>
                     <th>Email</th>
@@ -54,17 +55,40 @@
             serverSide: true,
             ajax: "{% url 'contact_data' %}",
             columns: [
+                { data: 'pk'},
                 { data: 'name' },
                 { data: 'phone_number' },
                 { data: 'email' },
                 { data: 'contact_group__name' },
-                { data: 'actions', orderable: false, searchable: false }
+                {
+                    data: null,
+                    orderable: false,
+                    render: function (data, type, row) {
+                        return (
+                            '<div class="btn-group" role="group">' +
+                            '<button data-id="' + row.pk + '" class="btn btn-sm btn-primary edit-btn">Edit</button> ' +
+                            '<button data-id="' + row.pk + '" class="btn btn-sm btn-danger delete-btn">Delete</button>' +
+                            "</div>"
+                        );
+                    },
+                },
             ]
         });
 
-        // Show add contact modal
-        $('#add-contact-btn').click(function () {
-            url = "{% url 'contact_create'%}"
+        // Create button click handler
+        $("#add-contact-btn").on("click", function () {
+            loadFormInModal("{% url 'contact_create' %}", "Create New Contact");
+        });
+
+        // Edit button click handler (delegated event for dynamically created buttons)
+        $("#contacts-table").on("click", ".edit-btn", function () {
+            const contactId = $(this).data("id");
+            loadFormInModal("{% url 'contact_update' pk=0 %}".replace("0", contactId), "Edit Blog");
+        });
+
+        // Function to load form in modal via AJAX
+        function loadFormInModal(url, title) {
+            // Show modal
             const contactModal = new bootstrap.Modal(document.getElementById('contact-modal'));
             contactModal.show();
 
@@ -74,13 +98,12 @@
                 type: "GET",
                 success: function (data) {
                     $(".modal-body").html(data);
-                    setupFormSubmission();
                 },
                 error: function (xhr, status, error) {
                     $(".modal-body").html('<div class="alert alert-danger">Error loading form: ' + error + '</div>');
                 }
             });
-        });
+        }
 
         // Handle form submit
         $('#modal-form-container').on('submit', '.contact-form', function (e) {
@@ -109,27 +132,17 @@
                     } else {
                         $('#modal-form-container').html(data.html_form);
                     }
-                }
-            });
-        });
-
-        // Edit contact
-        $('#contacts-table').on('click', '.edit-btn', function () {
-            var url = $(this).data('url');
-
-            $.ajax({
-                url: url,
-                type: 'get',
-                success: function (data) {
-                    $('#modal-form-container').html(data.html_form);
-                    $('#contact-modal').modal('show');
+                },
+                error: function (xhr, status, error) {
+                    $(".modal-body").append('<div class="alert alert-danger mt-3">Error submitting form: ' + error + '</div>');
                 }
             });
         });
 
         // Delete contact
         $('#contacts-table').on('click', '.delete-btn', function () {
-            var url = $(this).data('url');
+            let id = $(this).data('id');
+            let url = `/delete/${id}/`;
 
             Swal.fire({
                 title: 'Are you sure?',
@@ -164,5 +177,41 @@
             });
         });
     });
+    function validation() {
+            let isValid = true;
+
+            // Get input values
+            let phone_number = document.getElementById("id_phone_number").value.trim();
+            let email = document.getElementById("id_email").value.trim();
+
+            // Validate phone number: 10-digit Indian number starting with 6-9
+            const phoneRegex = /^[6-9]\d{9}$/;
+            if (!phoneRegex.test(phone_number)) {
+                isValid = false;
+                Swal.fire({
+                    title: 'Incorrect Input',
+                    text: "Phone number must be a 10-digit Indian number starting with 6, 7, 8, or 9.",
+                    icon: 'warning',
+                    timer: 2000
+                });
+            }
+
+            // Validate email if not empty
+            if (email !== "") {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    isValid = false;
+                    Swal.fire({
+                        title: 'Incorrect Input',
+                        text: "Please enter a valid email address.",
+                        icon: 'warning',
+                        timer: 2000
+                    });
+                }
+            }
+
+            return isValid;
+        }
+
 </script>
 {% endblock %}
