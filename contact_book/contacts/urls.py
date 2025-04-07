@@ -15,6 +15,7 @@ from .views import (
     login_view,
     logout_view,
     manage_users,
+    change_user_role
 )
 
 urlpatterns = [
@@ -57,7 +58,11 @@ urlpatterns = [
     path("create/", ContactCreateView.as_view(), name="contact_create"),
     path("update/<int:pk>/", ContactUpdateView.as_view(), name="contact_update"),
     path("delete/<int:pk>/", ContactDeleteView.as_view(), name="contact_delete"),
-
     # Admin URLs
     path("manage-users/", manage_users, name="manage_users"),
+    path(
+        "change-user-role/<int:user_id>/<str:new_role>/",
+        change_user_role,
+        name="change_user_role",
+    ),
 ]

@@ -10,6 +10,8 @@ class ContactGroupAdmin(admin.ModelAdmin):
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
-    list_display = ('name', 'phone_number', 'email', 'contact_group')
+    list_display = ('name', 'phone_number', 'email', 'contact_group', 'owner')
     search_fields = ('name', 'phone_number', 'email')
     list_filter = ('contact_group',)
+
+admin.site.register(User)

@@ -66,7 +66,17 @@ class ContactForm(forms.ModelForm):
         label="Image",
         required=True
     )
+    owner = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+        required=True,
+        label="Owner",
+    )
     class Meta:
         model = Contact
         fields = ['name', 'phone_number', 'email',
-                  'contact_picture', 'contact_group']
+                  'contact_picture', 'contact_group', 'owner']
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # Make contact_group field required
+            self.fields['contact_group'].empty_label = None

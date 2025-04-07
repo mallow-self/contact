@@ -12,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from .permissions import OwnershipRequiredMixin, AdminRequiredMixin, role_required
+from django.core.exceptions import PermissionDenied
 
 
 def register_view(request):
@@ -76,7 +77,7 @@ class ContactListView(LoginRequiredMixin, ListView):
             return Contact.objects.filter(owner=user)
 
 
-class ContactAjaxDatatableView(AjaxDatatableView):
+class ContactAjaxDatatableView(LoginRequiredMixin, AjaxDatatableView):
     model = Contact
     title = 'Contacts'
     search_fields: list[str] = ["name", "phone_number", "email","contact_group__name"]
@@ -88,6 +89,10 @@ class ContactAjaxDatatableView(AjaxDatatableView):
         {'name': 'contact_group__name', 'visible': True, 'title': 'Group', 'foreign_field': 'contact_group__name'},
         {'name': 'owner'}
     ]
+
+    def get_initial_queryset(self,request):
+        user = self.request.user
+        return Contact.objects.filter(owner=user)
 
 
 class ContactCreateView(LoginRequiredMixin, CreateView):
@@ -107,6 +112,8 @@ class ContactCreateView(LoginRequiredMixin, CreateView):
                     form.fields['contact_group'].queryset = ContactGroup.objects.all()
                 else:
                     form.fields['contact_group'].queryset = ContactGroup.objects.filter(owner=user)
+
+                form.fields['owner'].queryset = User.objects.filter(id=user.id)
 
                 return render(request, self.template_name, {'form': form})
             return super().get(request, *args, **kwargs)
@@ -129,7 +136,21 @@ class ContactCreateView(LoginRequiredMixin, CreateView):
     def form_invalid(self, form):
         try:
             if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                html_form = render_to_string(self.template_name, {'form': form}, request=self.request)
+
+                user = self.request.user
+                if user.role == "SUPER_ADMIN":
+                    form.fields["contact_group"].queryset = ContactGroup.objects.all()
+                else:
+                    form.fields["contact_group"].queryset = ContactGroup.objects.filter(
+                        owner=user
+                    )
+
+                form.fields["owner"].queryset = User.objects.filter(id=user.id)
+
+                html_form = render_to_string(
+                    self.template_name, {"form": form}, request=self.request
+                )
+
                 return JsonResponse({
                     'success': False,
                     'html_form': html_form
@@ -162,6 +183,7 @@ class ContactUpdateView(LoginRequiredMixin, OwnershipRequiredMixin, UpdateView):
                 else:
                     form.fields['contact_group'].queryset = ContactGroup.objects.filter(owner=user)
 
+                form.fields["owner"].queryset = User.objects.filter(id=user.id)
                 context = {
                     "form": form,
                     "object": self.object,
@@ -206,6 +228,15 @@ class ContactUpdateView(LoginRequiredMixin, OwnershipRequiredMixin, UpdateView):
         try:
             if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 self.object = self.get_object()  # Need to get the object for the template
+                user = self.request.user
+                if user.role == "SUPER_ADMIN":
+                    form.fields["contact_group"].queryset = ContactGroup.objects.all()
+                else:
+                    form.fields["contact_group"].queryset = ContactGroup.objects.filter(
+                        owner=user
+                    )
+
+                form.fields["owner"].queryset = User.objects.filter(id=user.id)
                 context = {
                     "form": form,
                     "object": self.object,
@@ -227,6 +258,7 @@ class ContactUpdateView(LoginRequiredMixin, OwnershipRequiredMixin, UpdateView):
 
 class ContactDeleteView(LoginRequiredMixin, OwnershipRequiredMixin, DeleteView):
     model = Contact
+
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         self.object.delete()
@@ -250,3 +282,39 @@ def manage_users(request):
         users = User.objects.filter(role="USER")
 
     return render(request, "admin/manage_users.html", {"users": users})
+
+
+@login_required
+@role_required(["SUPER_ADMIN", "ADMIN"])
+def change_user_role(request, user_id, new_role):
+    """
+    Change a user's role - available to admins and super admins with restrictions
+    """
+    if new_role not in [role[0] for role in User.ROLE_CHOICES]:
+        messages.error(request, "Invalid role selected.")
+        return redirect("manage_users")
+
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        messages.error(request, "User not found.")
+        return redirect("manage_users")
+
+    # Check permissions
+    if request.user.role == "ADMIN":
+        # Admins can only manage regular users
+        if target_user.role != "USER" or new_role == "SUPER_ADMIN":
+            messages.error(
+                request, "You don't have permission to change this user's role."
+            )
+            return redirect("manage_users")
+
+    # Make the change
+    target_user.role = new_role
+    target_user.save()
+    messages.success(
+        request,
+        f"User {target_user.email} role changed to {target_user.get_role_display()}.",
+    )
+
+    return redirect("manage_users")

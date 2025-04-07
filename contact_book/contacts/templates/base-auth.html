@@ -19,9 +19,6 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'contact_list' %}">My Contacts</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'contact_create' %}">Add Contact</a>
-                    </li>
                     {% if user.role == 'SUPER_ADMIN' or user.role == 'ADMIN' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'manage_users' %}">Manage Users</a>
