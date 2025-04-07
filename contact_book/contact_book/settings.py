@@ -156,6 +156,16 @@ STORAGES = {
 }
 
 
-
 # AJAX DataTable settings
 AJAX_DATATABLE_MAX_DISPLAY_LENGTH = 500
+
+
+# Authentication settings
+AUTH_USER_MODEL = "contacts.User"  
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "contact_list"
+LOGOUT_REDIRECT_URL = "login"
+
+# For password reset emails
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # For development, prints emails to console

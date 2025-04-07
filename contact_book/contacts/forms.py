@@ -1,8 +1,44 @@
 from django import forms
-from .models import Contact
-from django.core.validators import RegexValidator
+from .models import Contact, User
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+
+
+class RegisterForm(UserCreationForm):
+    email = forms.EmailField(widget=forms.EmailInput(attrs={"class": "form-control"}))
+    password1 = forms.CharField(
+        label="Password",
+        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+        help_text="Your password must contain at least 8 characters, including letters and numbers.",
+    )
+    password2 = forms.CharField(
+        label="Confirm Password",
+        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+    )
+
+    class Meta:
+        model = User
+        fields = ("email", "password1", "password2")
+
+    def clean_password1(self):
+        password = self.cleaned_data.get("password1")
+        if len(password) < 8:
+            raise ValidationError("Password must be at least 8 characters long.")
+        if not any(char.isdigit() for char in password):
+            raise ValidationError("Password must contain at least one number.")
+        if not any(char.isalpha() for char in password):
+            raise ValidationError("Password must contain at least one letter.")
+        return password
+
+
+class LoginForm(AuthenticationForm):
+    username = forms.EmailField(
+        label="Email", widget=forms.EmailInput(attrs={"class": "form-control"})
+    )
+    password = forms.CharField(
+        label="Password", widget=forms.PasswordInput(attrs={"class": "form-control"})
+    )
+
 
 class ContactForm(forms.ModelForm):
     name = forms.CharField(

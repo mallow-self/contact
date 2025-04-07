@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ContactGroup, Contact
+from .models import ContactGroup, Contact, User
 
 
 @admin.register(ContactGroup)
